@@ -20,4 +20,15 @@ variable "owner" {
   description = "The name of the owner of the resources"
   type        = string
   default     = "Amit"
+}
+
+variable "aws_access_key" {
+  description = "AWS access key"
+  type        = string
+}
+
+variable "aws_secret_key" {
+  description = "AWS secret key"
+  type        = string
+  sensitive   = true
 } 

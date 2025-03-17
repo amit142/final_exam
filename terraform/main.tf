@@ -1,5 +1,7 @@
 provider "aws" {
-  region = var.region
+  region     = var.region
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
 }
 
 # Generate an SSH key pair
@@ -24,7 +26,7 @@ resource "aws_key_pair" "builder_key" {
 # Create a security group for the EC2 instance
 resource "aws_security_group" "builder_sg" {
   name        = "${var.owner}-builder-sg"
-  description = "Security group for ${var.owner}'s builder EC2 instance"
+  description = "Security group for ${var.owner} builder EC2 instance"
   vpc_id      = var.vpc_id
 
   # Allow SSH access
