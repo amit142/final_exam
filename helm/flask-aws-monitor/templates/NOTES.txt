@@ -1,0 +1,36 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get values {{ .Release.Name }}
+
+{{- if contains "LoadBalancer" .Values.service.type }}
+NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+      You can watch the status by running:
+      
+      $ kubectl get svc -w {{ include "flask-aws-monitor.fullname" . }}
+
+Once the external IP is available, you can access the application at:
+http://<external-ip>:{{ .Values.service.port }}
+
+{{- else if contains "ClusterIP" .Values.service.type }}
+You can access the application by port-forwarding the service:
+
+  $ kubectl port-forward svc/{{ include "flask-aws-monitor.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Then access the application at:
+http://localhost:{{ .Values.service.port }}
+{{- end }}
+
+Make sure you have set up your AWS credentials correctly:
+
+  $ helm upgrade {{ .Release.Name }} . \
+    --set aws.credentials.access_key=your-access-key \
+    --set aws.credentials.secret_key=your-secret-key
+
+To check the application logs:
+
+  $ kubectl logs -l app.kubernetes.io/name={{ include "flask-aws-monitor.name" . }}
