@@ -1,0 +1,104 @@
+# Azure DevOps Pipeline for CI/CD Integration
+
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  imageName: 'amitbatito/flask-aws-monitor'
+  imageTag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: LintingAndSecurity
+    displayName: 'Linting and Security Scanning'
+    steps:
+    - checkout: self
+    
+    - task: Bash@3
+      displayName: 'Python Linting'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Python linting with Flake8"
+          # Mock command for Python linting
+          echo "flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics"
+    
+    - task: Bash@3
+      displayName: 'Dockerfile Linting'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Dockerfile linting with Hadolint"
+          # Mock command for Dockerfile linting
+          echo "hadolint app/Dockerfile"
+    
+    - task: Bash@3
+      displayName: 'Shell Script Linting'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Shell script linting with ShellCheck"
+          # Mock command for Shell script linting
+          echo "find . -name '*.sh' -exec shellcheck {} \;"
+    
+    - task: Bash@3
+      displayName: 'Python Security Scanning'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Python security scanning with Bandit"
+          # Mock command for Python security scanning
+          echo "bandit -r app/ -f json -o bandit-results.json"
+    
+    - task: Bash@3
+      displayName: 'Docker Image Security Scanning'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Docker image security scanning with Trivy"
+          # Mock command for Docker image security scanning
+          echo "trivy image $(imageName):$(imageTag)"
+    
+    - task: Bash@3
+      displayName: 'Dependency Security Scanning'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running dependency security scanning"
+          # Mock command for dependency security scanning
+          echo "safety check -r app/requirements.txt"
+  
+  - job: BuildAndPush
+    displayName: 'Build and Push Docker Image'
+    dependsOn: LintingAndSecurity
+    steps:
+    - checkout: self
+    
+    - task: Docker@2
+      displayName: 'Build Docker Image'
+      inputs:
+        command: 'build'
+        Dockerfile: 'app/Dockerfile'
+        buildContext: 'app'
+        repository: '$(imageName)'
+        tags: |
+          $(imageTag)
+          latest
+    
+    - task: Docker@2
+      displayName: 'Push Docker Image to Docker Hub'
+      inputs:
+        command: 'push'
+        containerRegistry: 'dockerhub-connection'
+        repository: '$(imageName)'
+        tags: |
+          $(imageTag)
+          latest 
