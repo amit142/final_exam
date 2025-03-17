@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-monitor-config
+data:
+  FLASK_APP: app.py
+  FLASK_ENV: production
+  AWS_DEFAULT_REGION: us-east-1 

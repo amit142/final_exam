@@ -1,0 +1,86 @@
+// Jenkins Pipeline for CI/CD Integration
+
+pipeline {
+    agent any
+    
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
+        IMAGE_NAME = 'amit142/aws-monitor'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+    
+    stages {
+        stage('Clone Repository') {
+            steps {
+                checkout([$class: 'GitSCM', 
+                    branches: [[name: '*/feature/jenkins-cicd']], 
+                    userRemoteConfigs: [[url: 'https://github.com/amit142/final_exam.git']]])
+            }
+        }
+        
+        stage('Checks') {
+            parallel {
+                stage('Linting') {
+                    steps {
+                        sh 'echo "Running Python linting with Flake8"'
+                        sh 'pip3 install flake8 || true'
+                        sh 'flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true'
+                        
+                        sh 'echo "Running Dockerfile linting with Hadolint"'
+                        sh 'hadolint app/Dockerfile || true'
+                        
+                        sh 'echo "Running Shell script linting with ShellCheck"'
+                        sh 'find . -name "*.sh" -exec shellcheck {} \\; || true'
+                    }
+                }
+                
+                stage('Security Scanning') {
+                    steps {
+                        sh 'echo "Running Python security scanning with Bandit"'
+                        sh 'pip3 install bandit || true'
+                        sh 'bandit -r app/ -f json -o bandit-results.json || true'
+                        
+                        sh 'echo "Running Docker image security scanning with Trivy"'
+                        sh 'trivy filesystem --skip-db-update app/ || true'
+                        
+                        sh 'echo "Running dependency security scanning"'
+                        sh 'pip3 install safety || true'
+                        sh 'safety check -r app/requirements.txt || true'
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                sh 'echo "Building Docker image"'
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+            }
+        }
+        
+        stage('Push to Docker Hub') {
+            steps {
+                sh 'echo "Logging in to Docker Hub"'
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                sh 'echo "Pushing Docker image to Docker Hub"'
+                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                sh "docker push ${IMAGE_NAME}:latest"
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo 'CI/CD pipeline completed successfully!'
+        }
+        failure {
+            echo 'CI/CD pipeline failed. Please check the logs for details.'
+        }
+        always {
+            sh 'docker logout'
+            sh 'docker system prune -f'
+            cleanWs()
+        }
+    }
+} 

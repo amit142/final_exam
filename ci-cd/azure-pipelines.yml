@@ -1,0 +1,102 @@
+# Azure DevOps Pipeline for CI/CD Integration
+
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+      - feature/jenkins-cicd
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  imageName: 'amit142/aws-monitor'
+  imageTag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: LintingAndSecurity
+    displayName: 'Linting and Security Scanning'
+    steps:
+    - checkout: self
+    
+    - task: Bash@3
+      displayName: 'Python Linting'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Python linting with Flake8"
+          pip3 install flake8 || true
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
+    
+    - task: Bash@3
+      displayName: 'Dockerfile Linting'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Dockerfile linting with Hadolint"
+          hadolint Dockerfile || true
+    
+    - task: Bash@3
+      displayName: 'Shell Script Linting'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Shell script linting with ShellCheck"
+          find . -name "*.sh" -exec shellcheck {} \; || true
+    
+    - task: Bash@3
+      displayName: 'Python Security Scanning'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Python security scanning with Bandit"
+          pip3 install bandit || true
+          bandit -r app/ -f json -o bandit-results.json || true
+    
+    - task: Bash@3
+      displayName: 'Docker Image Security Scanning'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running Docker image security scanning with Trivy"
+          trivy filesystem --skip-db-update app/ || true
+    
+    - task: Bash@3
+      displayName: 'Dependency Security Scanning'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Running dependency security scanning"
+          pip3 install safety || true
+          safety check -r app/requirements.txt || true
+  
+  - job: BuildAndPush
+    displayName: 'Build and Push Docker Image'
+    dependsOn: LintingAndSecurity
+    steps:
+    - checkout: self
+    
+    - task: Docker@2
+      displayName: 'Build Docker Image'
+      inputs:
+        command: 'build'
+        Dockerfile: 'Dockerfile'
+        buildContext: '.'
+        repository: '$(imageName)'
+        tags: |
+          $(imageTag)
+          latest
+    
+    - task: Docker@2
+      displayName: 'Push Docker Image to Docker Hub'
+      inputs:
+        command: 'push'
+        containerRegistry: 'dockerhub-connection'
+        repository: '$(imageName)'
+        tags: |
+          $(imageTag)
+          latest 
