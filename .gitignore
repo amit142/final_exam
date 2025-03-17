@@ -1,0 +1,10 @@
+# Ignore all files and directories within .terraform directory
+terraform/.terraform/
+terraform/.terraform/*
+
+# Typically you also want to ignore these Terraform-related files
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.tfplan
+terraform/crash.log
