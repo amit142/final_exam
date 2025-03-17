@@ -5,7 +5,7 @@ pipeline {
     
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-        IMAGE_NAME = 'amitbatito/flask-aws-monitor'
+        IMAGE_NAME = 'amit142/flask-aws-monitor'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
     
