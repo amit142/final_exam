@@ -9,6 +9,5 @@ spec:
   ports:
   - port: 80
     targetPort: 5001
-    protocol: TCP
   selector:
     app: aws-monitor 
