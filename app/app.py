@@ -1,6 +1,6 @@
 import os
 import boto3
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, jsonify
 
 app = Flask(__name__)
 
@@ -10,14 +10,30 @@ AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 REGION = "us-east-1"
 
 # Initialize Boto3 clients
-session = boto3.Session(
-   aws_access_key_id=AWS_ACCESS_KEY,
-   aws_secret_access_key=AWS_SECRET_KEY,
-   region_name=REGION
-)
-ec2_client = session.client("ec2")
-elbv2_client = session.client("elbv2")  # Application and Network Load Balancers
-elb_client = session.client("elb")      # Classic Load Balancers
+try:
+    session = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY,
+        aws_secret_access_key=AWS_SECRET_KEY,
+        region_name=REGION
+    )
+    ec2_client = session.client("ec2")
+    elbv2_client = session.client("elbv2")  # Application and Network Load Balancers
+    elb_client = session.client("elb")      # Classic Load Balancers
+except Exception as e:
+    print(f"Error initializing AWS clients: {e}")
+    ec2_client = None
+    elbv2_client = None
+    elb_client = None
+
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+@app.route("/readiness")
+def readiness_check():
+    if ec2_client is None:
+        return jsonify({"status": "unhealthy", "reason": "AWS credentials not configured"}), 500
+    return jsonify({"status": "healthy"}), 200
 
 @app.route("/")
 def home():

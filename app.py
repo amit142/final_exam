@@ -1,8 +1,10 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, jsonify
 import boto3
 import os
+from botocore.exceptions import ClientError, NoCredentialsError
 
 app = Flask(__name__)
+app.debug = True
 
 # HTML template for the main page
 HTML_TEMPLATE = '''
@@ -140,44 +142,20 @@ HTML_TEMPLATE = '''
 
 @app.route('/')
 def index():
-    # Initialize AWS clients
-    ec2_client = boto3.client('ec2', region_name='us-east-1')
-    elb_client = boto3.client('elb', region_name='us-east-1')
-    elbv2_client = boto3.client('elbv2', region_name='us-east-1')
-    
-    # Get EC2 instances
-    ec2_resource = boto3.resource('ec2', region_name='us-east-1')
-    ec2_instances = list(ec2_resource.instances.all())
-    
-    # Get VPCs
-    vpcs = list(ec2_resource.vpcs.all())
-    
-    # Get Load Balancers (both Classic and Application/Network)
-    classic_lbs = elb_client.describe_load_balancers().get('LoadBalancerDescriptions', [])
-    alb_nlb = elbv2_client.describe_load_balancers().get('LoadBalancers', [])
-    
-    # Format ALB/NLB to match classic LB structure for template
-    formatted_alb_nlb = []
-    for lb in alb_nlb:
-        formatted_alb_nlb.append({
-            'LoadBalancerName': lb.get('LoadBalancerName'),
-            'DNSName': lb.get('DNSName'),
-            'Type': lb.get('Type'),
-            'Scheme': lb.get('Scheme')
+    try:
+        ec2_resource = boto3.resource('ec2')
+        ec2_instances = list(ec2_resource.instances.all())
+        return render_template_string(
+            HTML_TEMPLATE,
+            ec2_instances=ec2_instances
+        )
+    except (ClientError, NoCredentialsError) as e:
+        return jsonify({
+            "status": "warning",
+            "message": "Application is running but AWS credentials are not configured correctly",
+            "error": str(e)
         })
-    
-    load_balancers = classic_lbs + formatted_alb_nlb
-    
-    # Get AMIs owned by the account
-    amis = list(ec2_resource.images.filter(Owners=['self']))
-    
-    return render_template_string(
-        HTML_TEMPLATE,
-        ec2_instances=ec2_instances,
-        vpcs=vpcs,
-        load_balancers=load_balancers,
-        amis=amis
-    )
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port)
