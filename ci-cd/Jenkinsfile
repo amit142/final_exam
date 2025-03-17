@@ -1,10 +1,10 @@
-# Jenkins Pipeline for CI/CD Integration
+// Jenkins Pipeline for CI/CD Integration
 
 pipeline {
     agent any
     
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
         IMAGE_NAME = 'amitbatito/flask-aws-monitor'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
@@ -12,44 +12,40 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/amit142/final_exam.git'
+                checkout([$class: 'GitSCM', 
+                    branches: [[name: '*/dev']], 
+                    userRemoteConfigs: [[url: 'https://github.com/amit142/final_exam.git']]])
             }
         }
         
-        stage('Parallel Checks') {
+        stage('Checks') {
             parallel {
                 stage('Linting') {
                     steps {
-                        sh '''
-                            echo "Running Python linting with Flake8"
-                            # Mock command for Python linting
-                            echo "flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics"
-                            
-                            echo "Running Dockerfile linting with Hadolint"
-                            # Mock command for Dockerfile linting
-                            echo "hadolint app/Dockerfile"
-                            
-                            echo "Running Shell script linting with ShellCheck"
-                            # Mock command for Shell script linting
-                            echo "find . -name "*.sh" -exec shellcheck {} \\;"
-                        '''
+                        sh 'echo "Running Python linting with Flake8"'
+                        sh 'pip3 install flake8 || true'
+                        sh 'flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true'
+                        
+                        sh 'echo "Running Dockerfile linting with Hadolint"'
+                        sh 'hadolint app/Dockerfile || true'
+                        
+                        sh 'echo "Running Shell script linting with ShellCheck"'
+                        sh 'find . -name "*.sh" -exec shellcheck {} \\; || true'
                     }
                 }
-                stage('Security Scan') {
+                
+                stage('Security Scanning') {
                     steps {
-                        sh '''
-                            echo "Running Python security scanning with Bandit"
-                            # Mock command for Python security scanning
-                            echo "bandit -r app/ -f json -o bandit-results.json"
-                            
-                            echo "Running Docker image security scanning with Trivy"
-                            # Mock command for Docker image security scanning
-                            echo "trivy image ${IMAGE_NAME}:${IMAGE_TAG}"
-                            
-                            echo "Running dependency security scanning"
-                            # Mock command for dependency security scanning
-                            echo "safety check -r app/requirements.txt"
-                        '''
+                        sh 'echo "Running Python security scanning with Bandit"'
+                        sh 'pip3 install bandit || true'
+                        sh 'bandit -r app/ -f json -o bandit-results.json || true'
+                        
+                        sh 'echo "Running Docker image security scanning with Trivy"'
+                        sh 'trivy filesystem --skip-db-update app/ || true'
+                        
+                        sh 'echo "Running dependency security scanning"'
+                        sh 'pip3 install safety || true'
+                        sh 'safety check -r app/requirements.txt || true'
                     }
                 }
             }
@@ -57,41 +53,31 @@ pipeline {
         
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    echo "Building Docker image"
-                    cd app
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
-                '''
+                sh 'echo "Building Docker image"'
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} app/"
+                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
             }
         }
         
         stage('Push to Docker Hub') {
             steps {
-                sh '''
-                    echo "Logging in to Docker Hub"
-                    echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
-                    
-                    echo "Pushing Docker image to Docker Hub"
-                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${IMAGE_NAME}:latest
-                    
-                    echo "Logging out from Docker Hub"
-                    docker logout
-                '''
+                sh 'echo "Pushing to Docker Hub"'
+                sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
+                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                sh "docker push ${IMAGE_NAME}:latest"
             }
         }
     }
     
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'CI/CD pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed! Check logs for details.'
+            echo 'CI/CD pipeline failed. Please check the logs for details.'
         }
         always {
-            sh 'docker system prune -af'
+            sh 'docker system prune -f'
             cleanWs()
         }
     }
