@@ -8,6 +8,7 @@ This repository contains the implementation of a DevOps end-to-end exam project,
 - **app/** - Flask application for AWS resource monitoring
 - **helm/** - Helm charts for Kubernetes deployment
 - **ci-cd/** - CI/CD pipeline configurations (Jenkins and Azure DevOps)
+- **kubernetes/** - Kubernetes manifests for direct deployment
 
 ## Implementation Details
 
@@ -25,6 +26,24 @@ This project follows a structured Git Flow:
 
 The application uses AWS credentials to access AWS resources. These credentials are provided as environment variables.
 
-## Deployment
+## Deployment Options
 
-The application is deployed using Docker and Kubernetes. See the respective directories for detailed deployment instructions. 
+### Docker
+The application can be deployed using Docker:
+```bash
+docker build -t amit142/aws-monitor:latest .
+docker run -p 5001:5001 amit142/aws-monitor:latest
+```
+
+### Kubernetes
+For Kubernetes deployment, use the manifests in the `kubernetes/` directory:
+```bash
+kubectl apply -k kubernetes/
+```
+See the [Kubernetes README](kubernetes/README.md) for detailed instructions.
+
+### Helm
+For Helm-based deployment, use the charts in the `helm/` directory.
+
+## CI/CD
+The project includes CI/CD configurations for both Jenkins and Azure DevOps in the `ci-cd/` directory. 
