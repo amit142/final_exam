@@ -5,7 +5,7 @@ pipeline {
     
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-        IMAGE_NAME = 'amit142/flask-aws-monitor'
+        IMAGE_NAME = 'amit142/aws-monitor'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
     
@@ -13,7 +13,7 @@ pipeline {
         stage('Clone Repository') {
             steps {
                 checkout([$class: 'GitSCM', 
-                    branches: [[name: '*/dev']], 
+                    branches: [[name: '*/feature/jenkins-cicd']], 
                     userRemoteConfigs: [[url: 'https://github.com/amit142/final_exam.git']]])
             }
         }
@@ -54,15 +54,16 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh 'echo "Building Docker image"'
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} app/"
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
                 sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
             }
         }
         
         stage('Push to Docker Hub') {
             steps {
-                sh 'echo "Pushing to Docker Hub"'
-                sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
+                sh 'echo "Logging in to Docker Hub"'
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                sh 'echo "Pushing Docker image to Docker Hub"'
                 sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
                 sh "docker push ${IMAGE_NAME}:latest"
             }
@@ -77,6 +78,7 @@ pipeline {
             echo 'CI/CD pipeline failed. Please check the logs for details.'
         }
         always {
+            sh 'docker logout'
             sh 'docker system prune -f'
             cleanWs()
         }
